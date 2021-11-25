@@ -41,13 +41,27 @@ jobs:
 
           for target in "${targets[@]}"; do
             mkdir -p artifacts/$target
-            echo "Building target ${target}..."	    
+            echo "Building target ${target}..."
+
+            # Build for target
             zig build -Dtarget=${target} -Drelease-safe --prefix artifacts/${target}/
+
+            # Copy README
             sed -e '1,5d' < README.md > artifacts/${target}/README.md
+
+            # Copy License
             cp LICENSE artifacts/${target}/
             cd artifacts/${target}/
-            tar cfJ ${target}.tar.xz *.md bin/*
-            mv ${target}.tar.xz ../
+
+            if [[ "$target" != *windows ]]
+            then
+              tar cfJ ${target}.tar.xz *.md bin/* LICENSE
+              mv ${target}.tar.xz ../
+            else
+              zip -r ${target}.zip bin *.md LICENSE
+              mv ${target}.zip ../
+            fi
+
             cd ../..
           done
 
@@ -56,4 +70,6 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: builds
-          path: artifacts/*.tar.xz
+          path: |
+            artifacts/*.tar.xz
+            artifacts/*.zip

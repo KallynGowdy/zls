@@ -45,7 +45,7 @@ jobs:
             cp LICENSE artifacts/${target}/
             cd artifacts/${target}/
 
-            if [[ "$target" == *linux ]]
+            if [[ "$target" != *windows ]]
             then
               tar cfJ ${target}.tar.xz *.md bin/* LICENSE
               mv ${target}.tar.xz ../
