@@ -1,0 +1,67 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'master/v*.*.*'
+      - 'pre/v*.*.*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
+      - uses: goto-bus-stop/setup-zig@v1
+        with:
+          version: master
+
+      - name: Build
+        run: zig build
+
+      # ZLS Tests currently fail on windows? Once they are passing and kept up to date, this can be enabled everywhere
+      - name: Run Tests
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+        run: zig build test
+
+      - name: Build artifacts
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+        run: |
+          declare -a targets=("x86_64-windows" "x86_64-linux" "x86_64-macos" "i386-windows" "i386-linux")
+          mkdir -p "artifacts/"
+
+          for target in "${targets[@]}"; do
+            mkdir -p artifacts/$target
+            echo "Building target ${target}..."
+
+            # Build for target
+            zig build -Dtarget=${target} -Drelease-safe --prefix artifacts/${target}/
+
+            # Copy README
+            sed -e '1,5d' < README.md > artifacts/${target}/README.md
+
+            # Copy License
+            cp LICENSE artifacts/${target}/
+            cd artifacts/${target}/
+
+            if [[ "$target" == *linux ]]
+            then
+              tar cfJ ${target}.tar.xz *.md bin/* LICENSE
+              mv ${target}.tar.xz ../
+            else
+              zip -r ${target}.zip bin *.md LICENSE
+              mv ${target}.zip ../
+            fi
+
+            cd ../..
+          done
+
+      - name: Create GH Release
+        uses: softprops/action-gh-release@v1
+        with:
+          prerelease: startsWith(github.ref, 'refs/tags/pre')
+          files: |
+            artifacts/*.zip
+            artifacts/*.tar.xz
+
